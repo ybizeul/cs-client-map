@@ -51,12 +51,12 @@ func yesterdayMidnightUnix() int64 {
 	t := time.Now()
 	y := t.Add(-time.Hour * 24)
 	m := time.Date(y.Year(), y.Month(), y.Day(), 0, 0, 0, 0, time.Local)
-	return m.UnixMicro()
+	return m.UnixMilli()
 }
 func todayMidnightUnix() int64 {
 	t := time.Now()
 	m := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
-	return m.UnixMicro()
+	return m.UnixMilli()
 }
 
 // Main
@@ -73,7 +73,7 @@ func main() {
 	}
 
 	if *toTime == 0 {
-		*toTime = yesterdayMidnightUnix()
+		*toTime = todayMidnightUnix()
 	}
 
 	if *api_endpoint == "" {
@@ -105,8 +105,11 @@ func main() {
 
 	count := activities.Count
 
+	f := time.UnixMilli(*fromTime)
+	t := time.UnixMilli(*toTime)
+
 	// Log job size to StdErr
-	fmt.Fprintf(os.Stderr, "Analyzing %d records\n", count)
+	fmt.Fprintf(os.Stderr, "Analyzing %d records between\n%s and\n%s\n", count, f.Format(time.RFC822), t.Format(time.RFC822))
 
 	jobsCount := int(math.Ceil(float64(count / LIMIT)))
 
@@ -172,7 +175,7 @@ func fetchActivities(from int64, to int64, offset int) *Activities {
 
 	url := fmt.Sprintf("https://%s/rest/v1/cloudsecure/activities?from=%d&to=%d&offset=%d", *api_endpoint, from, to, offset)
 
-	//fmt.Println(url)
+	// fmt.Println(url)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
