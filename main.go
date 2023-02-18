@@ -18,8 +18,8 @@ import (
 
 // Command line arguments
 var version = flag.Bool("v", false, "Print version and exits")
-var api_endpoint = flag.String("e", "", "CloudSecure enpoint for the instance to use, i.e. 'psxxx.cs01.cloudinsights.netapp.com'. Can be set in CI_ENDPOINT environement variable too")
-var api_key = flag.String("k", "", "API Key used to authenticate with CloudSecure service. Can be set in CI_API_KEY environement variable too")
+var api_endpoint = flag.String("e", "", "CloudSecure enpoint for the instance to use, i.e. 'psxxx.cs01.cloudinsights.netapp.com'. Can be set in CS_ENDPOINT environement variable too")
+var api_key = flag.String("k", "", "API Key used to authenticate with CloudSecure service. Can be set in CS_API_KEY environement variable too")
 var depth = flag.Int("p", 1, "Path depth to output")
 var fromTime = flag.Int64("f", 0, "From time. Unix ms timestamp which defaults to yesterday at 00:00")
 var toTime = flag.Int64("t", 0, "To time. Unix ms timestamp which defaults to today at 00:00")
@@ -77,11 +77,21 @@ func main() {
 	}
 
 	if *api_endpoint == "" {
-		*api_endpoint = os.Getenv("CI_ENDPOINT")
+		*api_endpoint = os.Getenv("CS_ENDPOINT")
 	}
 
 	if *api_key == "" {
-		*api_key = os.Getenv("CI_API_KEY")
+		*api_key = os.Getenv("CS_API_KEY")
+	}
+
+	// Check mendatory parameters
+	if *api_endpoint == "" {
+		fmt.Fprintf(os.Stderr, "Missing api endpoint as argument (-e) or CS_ENDPOINT env\n")
+		os.Exit(1)
+	}
+	if *api_key == "" {
+		fmt.Fprintf(os.Stderr, "Missing api key as argument (-k) or CS_API_KEY env\n")
+		os.Exit(1)
 	}
 
 	// Initialize cache
