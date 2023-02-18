@@ -29,7 +29,11 @@ const VERSION = "0.9"
 const WORKERS = 10
 const LIMIT = 1000
 
+// CACHE maintains a list of unique client / path string
 var CACHE *cache.Cache
+
+// STATUS maintains completion percentage of each thread
+var STATUS []int
 
 // Data types
 type Activities struct {
@@ -83,10 +87,17 @@ func main() {
 	// Initialize cache
 	CACHE = cache.New(0, 0)
 
+	// Initialize status
+	STATUS = make([]int, WORKERS)
+
 	// Fetch activities from Cloud Insights
 	activities := fetchActivities(*fromTime, *toTime, 0)
 
 	count := activities.Count
+
+	// Log job size to StdErr
+	fmt.Fprintf(os.Stderr, "Analyzing %d records\n", count)
+
 	jobsCount := int(math.Ceil(float64(count / LIMIT)))
 
 	jobs := make(chan int, int(jobsCount))
@@ -104,7 +115,7 @@ func main() {
 
 	close(jobs)
 	wg.Wait()
-
+	fmt.Fprintf(os.Stderr, "\n")
 	items := CACHE.Items()
 	for i := range items {
 		fmt.Println(i)
@@ -123,12 +134,26 @@ func processJobs(w int, job int) {
 	//fmt.Printf("Worker %d, Job %d\n", w, job)
 	activities := fetchActivities(*fromTime, *toTime, job*LIMIT)
 	// Display activities
-	for _, a := range activities.Results {
+	for i := 0; i < len(activities.Results); i++ {
+		a := activities.Results[i]
 		split := strings.Split(a.EntityPath, "/")
 		split = split[0 : *depth+1]
 		entry := fmt.Sprintf("%s\t%s", a.AccessLocation, strings.Join(split, "/"))
 		CACHE.Add(entry, 1, 0)
+		STATUS[w-1] = int(100 * i / len(activities.Results))
+		updateJobStatus()
 	}
+	STATUS[w-1] = 100
+	updateJobStatus()
+}
+
+func updateJobStatus() {
+	avg := 0
+	for i := 0; i < len(STATUS); i++ {
+		avg += STATUS[i]
+	}
+	percent := int(math.Floor(float64(avg) / float64(len(STATUS))))
+	fmt.Fprintf(os.Stderr, "\rDone %d%%", percent)
 }
 
 // fetchActivities for the given from and to time with the indicated offset
