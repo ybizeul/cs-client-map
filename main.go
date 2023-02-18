@@ -131,8 +131,7 @@ func processJobs(w int, job int) {
 	}
 }
 
-// fetchActivities takes a previous result as argument or nil for the initial
-// fetch. If a previous result is provided, it'll fetch the next set of results
+// fetchActivities for the given from and to time with the indicated offset
 func fetchActivities(from int64, to int64, offset int) *Activities {
 	client := &http.Client{}
 
