@@ -38,3 +38,7 @@ You can redirect output to a file :
 Analyzing 11833 records
 Done 100%
 ```
+
+### Using Proxies
+
+You can set environment variables `HTTP_PROXY` and `HTTPS_PROXY` before running `cs-client-map`
