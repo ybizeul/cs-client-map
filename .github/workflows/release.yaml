@@ -15,3 +15,5 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         goos: linux
         goarch: amd64
+        retry: 10
+        overwrite: true
