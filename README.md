@@ -7,18 +7,19 @@ You can specify a date range and/or a path depth to match (usefull to map
 based on qtrees instead of volumes)
 
 ```
-cs-client-map -h
-Usage of /var/folders/lb/634kc9l90njb7_lp5_nqgqxc001h8c/T/go-build660580836/b001/exe/main:
+./cs-client-map -h
+Usage of ./cs-client-map:
   -e string
-        CloudSecure enpoint for the instance to use, i.e. 'psxxx.cs01.cloudinsights.netapp.com'. Can be set in CI_ENDPOINT environement variable too
+    	CloudSecure enpoint for the instance to use, i.e. 'psxxx.cs01.cloudinsights.netapp.com'. Can be set in CI_ENDPOINT environement variable too
   -f int
-        From time. Unix timestamp which defaults to yesterday at 00:00
+    	From time. Unix ms timestamp which defaults to yesterday at 00:00
   -k string
-        API Key used to authenticate with CloudSecure service. Can be set in CI_API_KEY environement variable too
+    	API Key used to authenticate with CloudSecure service. Can be set in CI_API_KEY environement variable too
   -p int
-        Path depth to output, default is 1 (Volume) (default 1)
+    	Path depth to output (default 1)
   -t int
-        To time. Unix timestamp which defaults to today at 00:00
+    	To time. Unix ms timestamp which defaults to today at 00:00
+  -v	Print version and exits
 ```
 
 Example output :
