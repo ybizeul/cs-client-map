@@ -25,7 +25,9 @@ Usage of ./cs-client-map:
 Example output :
 ```
 ./cs-client-map
-Analyzing 11828 records
+Analyzing 10777 records between
+  18 Feb 23 00:00 CET and
+  19 Feb 23 00:00 CET
 Done 100%
 192.168.0.5     /Marketing
 10.192.48.70    /ENG_CIFS_volume
@@ -35,7 +37,9 @@ Done 100%
 You can redirect output to a file :
 ```
 ./cs-client-map > out.txt
-Analyzing 11833 records
+Analyzing 10777 records between
+  18 Feb 23 00:00 CET and
+  19 Feb 23 00:00 CET
 Done 100%
 ```
 
