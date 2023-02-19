@@ -28,7 +28,7 @@ var fromTime = flag.Int64("f", 0, "From time. Unix ms timestamp which defaults t
 var toTime = flag.Int64("t", 0, "To time. Unix ms timestamp which defaults to today at 00:00")
 
 // Constants
-const VERSION = "0.8"
+const VERSION = "0.8.1"
 
 // Definine how many parallel workers to use when fetching data
 const WORKERS = 10
