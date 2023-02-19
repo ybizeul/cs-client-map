@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math"
 	"net/http"
@@ -14,10 +15,12 @@ import (
 	"time"
 
 	"github.com/patrickmn/go-cache"
+	"gopkg.in/yaml.v2"
 )
 
 // Command line arguments
 var version = flag.Bool("v", false, "Print version and exits")
+var config_file = flag.String("c", "./config.yaml", "Configuration file path")
 var api_endpoint = flag.String("e", "", "CloudSecure enpoint for the instance to use, i.e. 'psxxx.cs01.cloudinsights.netapp.com'. Can be set in CS_ENDPOINT environement variable too")
 var api_key = flag.String("k", "", "API Key used to authenticate with CloudSecure service. Can be set in CS_API_KEY environement variable too")
 var depth = flag.Int("p", 1, "Path depth to output")
@@ -26,7 +29,12 @@ var toTime = flag.Int64("t", 0, "To time. Unix ms timestamp which defaults to to
 
 // Constants
 const VERSION = "0.8"
+
+// Definine how many parallel workers to use when fetching data
 const WORKERS = 10
+
+// Limit parameter to be sent to CloudSecure API, at the current time, maximum
+// in 1000
 const LIMIT = 1000
 
 // CACHE maintains a list of unique client / path string
@@ -35,39 +43,31 @@ var CACHE *cache.Cache
 // STATUS maintains completion percentage of each thread
 var STATUS []int
 
+// Configuration file struct
+var CONFIG Config
+
 // Data types
+type Config struct {
+	CS_API_KEY      string
+	CS_API_ENDPOINT string
+}
+
 type Activities struct {
 	Count   int64      `json:"count"`
 	Limit   int64      `json:"limit"`
 	Offset  int64      `json:"offset"`
 	Results []Activity `json:"results"`
 }
+
 type Activity struct {
 	AccessLocation string `json:"accessLocation"`
 	EntityPath     string `json:"entityPath"`
 }
 
-func yesterdayMidnightUnix() int64 {
-	t := time.Now()
-	y := t.Add(-time.Hour * 24)
-	m := time.Date(y.Year(), y.Month(), y.Day(), 0, 0, 0, 0, time.Local)
-	return m.UnixMilli()
-}
-func todayMidnightUnix() int64 {
-	t := time.Now()
-	m := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
-	return m.UnixMilli()
-}
+// Initialize function
+func initialize() {
 
-// Main
-func main() {
-	// Parse command line arguments
-	flag.Parse()
-
-	if *version == true {
-		fmt.Printf("%s v%s (https://github.com/ybizeul/cs-client-map)\n", os.Args[0], VERSION)
-		os.Exit(0)
-	}
+	// fromTime
 	if *fromTime == 0 {
 		*fromTime = yesterdayMidnightUnix()
 	}
@@ -76,18 +76,42 @@ func main() {
 		*toTime = todayMidnightUnix()
 	}
 
-	if *api_endpoint == "" {
-		*api_endpoint = os.Getenv("CS_ENDPOINT")
+	// Read configuration file
+	if *config_file == "" {
+		if _, err := os.Stat("./config.yaml"); err == nil {
+			*config_file = "./config.yaml"
+		}
 	}
 
+	if *config_file != "" {
+		yamlFile, err := ioutil.ReadFile(*config_file)
+		if err != nil {
+			log.Printf("yamlFile.Get err   #%v ", err)
+		}
+		err = yaml.Unmarshal(yamlFile, &CONFIG)
+		if err != nil {
+			log.Fatalf("Unmarshal: %v", err)
+		}
+	}
+
+	// Read API enpoint parameter
+	if *api_endpoint == "" {
+		*api_endpoint = os.Getenv("CS_API_ENDPOINT")
+	}
+	if *api_endpoint == "" {
+		*api_endpoint = CONFIG.CS_API_ENDPOINT
+	}
+	if *api_endpoint == "" {
+		fmt.Fprintf(os.Stderr, "Missing api endpoint as argument (-e) or CS_API_ENDPOINT env\n")
+		os.Exit(1)
+	}
+
+	// Read API key parameter
 	if *api_key == "" {
 		*api_key = os.Getenv("CS_API_KEY")
 	}
-
-	// Check mendatory parameters
-	if *api_endpoint == "" {
-		fmt.Fprintf(os.Stderr, "Missing api endpoint as argument (-e) or CS_ENDPOINT env\n")
-		os.Exit(1)
+	if *api_key == "" {
+		*api_key = CONFIG.CS_API_KEY
 	}
 	if *api_key == "" {
 		fmt.Fprintf(os.Stderr, "Missing api key as argument (-k) or CS_API_KEY env\n")
@@ -99,6 +123,19 @@ func main() {
 
 	// Initialize status
 	STATUS = make([]int, WORKERS)
+}
+
+// Main
+func main() {
+	// Parse command line arguments
+	flag.Parse()
+
+	if *version == true {
+		fmt.Printf("%s v%s (https://github.com/ybizeul/cs-client-map)\n", os.Args[0], VERSION)
+		os.Exit(0)
+	}
+
+	initialize()
 
 	// Fetch activities from Cloud Insights
 	activities := fetchActivities(*fromTime, *toTime, 0)
@@ -109,7 +146,8 @@ func main() {
 	t := time.UnixMilli(*toTime)
 
 	// Log job size to StdErr
-	fmt.Fprintf(os.Stderr, "Analyzing %d records between\n%s and\n%s\n", count, f.Format(time.RFC822), t.Format(time.RFC822))
+	//fmt.Fprintf(os.Stderr, "Analyzing %d records between\n%s and\n%s\n", count, f.Format(time.RFC822), t.Format(time.RFC822))
+	printStdErr("Analyzing %d records between\n  %s and\n  %s\n", count, f.Format(time.RFC822), t.Format(time.RFC822))
 
 	jobsCount := int(math.Ceil(float64(count / LIMIT)))
 
@@ -166,7 +204,7 @@ func updateJobStatus() {
 		avg += STATUS[i]
 	}
 	percent := int(math.Floor(float64(avg) / float64(len(STATUS))))
-	fmt.Fprintf(os.Stderr, "\rDone %d%%", percent)
+	printStdErr("\rDone %d%%", percent)
 }
 
 // fetchActivities for the given from and to time with the indicated offset
@@ -184,6 +222,15 @@ func fetchActivities(from int64, to int64, offset int) *Activities {
 	req.Header.Add("X-CloudInsights-ApiKey", *api_key)
 
 	resp, err := client.Do(req)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		printStdErr("Authentication failed, please check API KEY and API Endpoint\n")
+		os.Exit(2)
+	}
 
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
